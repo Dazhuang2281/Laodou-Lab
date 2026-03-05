@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拼豆图纸生成器</title>
+    <style>
+        /* ===== 全局重置 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* ===== 头部 ===== */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 1rem;
+            color: #64748b;
+        }
+
+        /* ===== 主布局 ===== */
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 800px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== 控制面板 ===== */
+        .control-panel {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e9eef2;
+        }
+
+        .panel-section {
+            margin-bottom: 28px;
+        }
+
+        .panel-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 1px solid #e9eef2;
+            padding-bottom: 8px;
+        }
+
+        /* 上传区域 */
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f8fafc;
+        }
+
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background: #f1f5f9;
+        }
+
+        .upload-area.dragover {
+            border-color: #3b82f6;
+            background: #eef2ff;
+        }
+
+        .upload-area .upload-icon {
+            font-size: 2.8rem;
+            margin-bottom: 8px;
+            color: #64748b;
+        }
+
+        .upload-area p {
+            color: #475569;
+            font-size: 0.9rem;
+        }
+
+        .upload-area input[type="file"] {
+            display: none;
+        }
+
+        #imageTools {
+            display: none;
+            margin-top: 12px;
+        }
+
+        /* 尺寸网格 */
+        .size-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .size-option {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            color: #334155;
+        }
+
+        .size-option:hover {
+            border-color: #3b82f6;
+            background: #f1f5f9;
+        }
+
+        .size-option.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+
+        .size-option .size-label {
+            font-weight: 500;
+        }
+
+        /* 按钮 */
+        .btn {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #e2e8f0;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 设置项 */
+        .setting-item {
+            margin-bottom: 16px;
+        }
+
+        .setting-item label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .setting-item select,
+        .setting-item input[type="range"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        .setting-item select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #3b82f6;
+        }
+
+        /* 预览区域 */
+        .preview-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e9eef2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .preview-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .preview-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .preview-tab {
+            padding: 6px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #475569;
+            transition: all 0.2s;
+        }
+
+        .preview-tab.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+
+        .preview-tab:hover:not(.active) {
+            background: #f1f5f9;
+        }
+
+        .canvas-container {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 350px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .canvas-container canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #64748b;
+            padding: 40px 20px;
+        }
+
+        .empty-state .emoji {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            opacity: 0.6;
+        }
+
+        /* 边缘强度设置（隐藏/显示） */
+        #edgeStrengthSection {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* 加载遮罩 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(2px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 裁剪模态框 */
+        #cropModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #cropModal .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 90vw;
+            max-height: 90vh;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #cropCanvas {
+            max-width: 100%;
+            max-height: 60vh;
+            display: block;
+            border: 1px solid #e2e8f0;
+        }
+
+        #cropOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 2px dashed #3b82f6;
+            cursor: move;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        #cropOverlay .resize-handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #3b82f6;
+            border-radius: 2px;
+            border: 2px solid white;
+        }
+
+        #cropOverlay .resize-handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
+        #cropOverlay .resize-handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
+        #cropOverlay .resize-handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        #cropOverlay .resize-handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
+
+        /* 辅助 */
+        .flex-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>拼豆图纸生成器</h1>
+            <p>上传图片，转换为可拼豆的像素图纸</p>
+        </header>
+
+        <div class="main-content">
+            <!-- 控制面板 -->
+            <div class="control-panel">
+                <div class="panel-section">
+                    <h3>📷 上传图片</h3>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">🖼️</div>
+                        <p>点击或拖拽图片到这里</p>
+                        <p style="color:#94a3b8; font-size:0.8rem;">支持 JPG, PNG, GIF</p>
+                        <input type="file" id="fileInput" accept="image/*">
+                    </div>
+                    <div id="imageTools" style="display: none; gap: 8px; margin-top: 12px;">
+                        <button class="btn btn-secondary" id="cropBtn" style="font-size:0.9rem; padding:8px;">✂️ 裁剪图片</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>📏 选择尺寸</h3>
+                    <div class="size-grid" id="sizeGrid">
+                        <div class="size-option" data-size="10"><span class="size-label">10×10</span></div>
+                        <div class="size-option" data-size="15"><span class="size-label">15×15</span></div>
+                        <div class="size-option active" data-size="20"><span class="size-label">20×20</span></div>
+                        <div class="size-option" data-size="25"><span class="size-label">25×25</span></div>
+                        <div class="size-option" data-size="30"><span class="size-label">30×30</span></div>
+                        <div class="size-option" data-size="40"><span class="size-label">40×40</span></div>
+                        <div class="size-option" data-size="52"><span class="size-label">52×52</span></div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>⚙️ 处理设置</h3>
+                    <div class="setting-item">
+                        <label>对比度增强强度</label>
+                        <input type="range" id="contrastSlider" min="0.8" max="1.5" step="0.05" value="1.0">
+                        <div style="display:flex; justify-content:space-between; margin-top:4px; color:#64748b; font-size:0.8rem;">
+                            <span>0.8 (减弱)</span>
+                            <span id="contrastValue">1.0 (原始)</span>
+                            <span>1.5 (增强)</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="useEdgeEnhance">
+                            <label for="useEdgeEnhance">边缘增强（Sobel叠加）</label>
+                        </div>
+                        <div id="edgeStrengthSection" style="display: none;">
+                            <label style="font-size:0.85rem;">🎯 边缘增强强度</label>
+                            <input type="range" id="edgeStrengthSlider" min="0" max="1.5" step="0.1" value="0.4" style="width:100%;">
+                            <div style="display:flex; justify-content:space-between; margin-top:4px; color:#64748b; font-size:0.8rem;">
+                                <span>0</span>
+                                <span id="edgeStrengthValue" style="color:#3b82f6;">0.4</span>
+                                <span>1.5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="showGrid" checked>
+                            <label for="showGrid">显示网格线</label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="showColorCodes">
+                            <label for="showColorCodes">显示颜色编号</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="generateBtn" disabled>🎨 生成拼豆图纸</button>
+            </div>
+
+            <!-- 预览面板 -->
+            <div class="preview-panel">
+                <div class="preview-header">
+                    <h3>预览</h3>
+                    <div class="preview-tabs" id="previewTabs">
+                        <button class="preview-tab active" data-view="pixel">像素预览</button>
+                        <button class="preview-tab" data-view="grid">网格标注</button>
+                        <button class="preview-tab" data-view="original">原图</button>
+                    </div>
+                </div>
+
+                <div class="canvas-container" id="canvasContainer">
+                    <div class="empty-state" id="emptyState">
+                        <div class="emoji">🎨</div>
+                        <p>上传图片开始生成</p>
+                    </div>
+                    <canvas id="previewCanvas" style="display: none;"></canvas>
+                </div>
+
+                <div style="display:flex; gap:12px;">
+                    <button class="btn btn-secondary" id="downloadBtn" style="flex:1;" disabled>💾 下载图纸</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p style="color:#1e293b;" id="loadingText">正在生成拼豆图纸...</p>
+        </div>
+    </div>
+
+    <!-- 裁剪模态框 -->
+    <div id="cropModal">
+        <div class="modal-content">
+            <h3 style="color:#1e293b; margin:0;">✂️ 裁剪图片</h3>
+            <div style="position:relative; overflow:auto; max-height:60vh; border:1px solid #e2e8f0; border-radius:8px;">
+                <canvas id="cropCanvas"></canvas>
+                <div id="cropOverlay">
+                    <div class="resize-handle nw"></div>
+                    <div class="resize-handle ne"></div>
+                    <div class="resize-handle sw"></div>
+                    <div class="resize-handle se"></div>
+                </div>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button class="btn btn-secondary" onclick="closeCropModal()">取消</button>
+                <button class="btn btn-primary" onclick="applyCrop()">确认裁剪</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入核心算法模块，并以 type="module" 方式编写前端交互代码 -->
+    <script type="module">
+        // 从核心模块导入所需函数和色板
+        import { 
+            perlerColors, 
+            processImage,
+            findClosestColorIndex,
+            getContrastColor
+        } from './pindou-core.js';
+
+        // Global variables
+        let uploadedImage = null;
+        let currentSize = 20;
+        let actualHeight = 20;
+        let currentPalette = perlerColors; // 直接使用导入的色板
+        let currentView = 'pixel';
+        let pixelData = null;
+        let gridData = null;
+        
+        // Crop functionality variables
+        let cropCanvas, cropCtx, cropOverlay;
+        let isDragging = false;
+        let isResizing = false;
+        let resizeHandle = '';
+        let dragStartX, dragStartY;
+        let cropRect = { x: 0, y: 0, width: 0, height: 0 };
+
+        // DOM Elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const sizeGrid = document.getElementById('sizeGrid');
+        const generateBtn = document.getElementById('generateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const emptyState = document.getElementById('emptyState');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const previewTabs = document.getElementById('previewTabs');
+
+        // Event Listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                handleImageUpload(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleImageUpload(e.target.files[0]);
+            }
+        });
+
+        sizeGrid.querySelectorAll('.size-option').forEach(option => {
+            option.addEventListener('click', () => {
+                sizeGrid.querySelectorAll('.size-option').forEach(o => o.classList.remove('active'));
+                option.classList.add('active');
+                currentSize = parseInt(option.dataset.size);
+                if (uploadedImage) {
+                    generateBeadPattern();
+                }
+            });
+        });
+
+        previewTabs.querySelectorAll('.preview-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                previewTabs.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentView = tab.dataset.view;
+                renderPreview();
+            });
+        });
+
+        generateBtn.addEventListener('click', generateBeadPattern);
+        downloadBtn.addEventListener('click', downloadPattern);
+        
+        // Crop button
+        document.getElementById('cropBtn').addEventListener('click', openCropModal);
+        
+        // Update contrast slider value display
+        const contrastSlider = document.getElementById('contrastSlider');
+        const contrastValue = document.getElementById('contrastValue');
+        contrastSlider.addEventListener('input', () => {
+            const value = parseFloat(contrastSlider.value);
+            let label = '原始';
+            if (value < 1.0) {
+                label = '减弱';
+            } else if (value > 1.0) {
+                label = '增强';
+            }
+            contrastValue.textContent = `${value.toFixed(2)} (${label})`;
+        });
+
+        // Edge enhancement controls
+        const useEdgeEnhance = document.getElementById('useEdgeEnhance');
+        const edgeStrengthSection = document.getElementById('edgeStrengthSection');
+        const edgeStrengthSlider = document.getElementById('edgeStrengthSlider');
+        const edgeStrengthValue = document.getElementById('edgeStrengthValue');
+
+        // Show/hide edge strength slider based on checkbox
+        useEdgeEnhance.addEventListener('change', () => {
+            if (useEdgeEnhance.checked) {
+                edgeStrengthSection.style.display = 'block';
+            } else {
+                edgeStrengthSection.style.display = 'none';
+            }
+        });
+
+        // Update edge strength value display
+        edgeStrengthSlider.addEventListener('input', () => {
+            const value = parseFloat(edgeStrengthSlider.value);
+            edgeStrengthValue.textContent = value.toFixed(1);
+        });
+
+        // Functions
+        function handleImageUpload(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    uploadedImage = img;
+                    emptyState.style.display = 'none';
+                    previewCanvas.style.display = 'block';
+                    generateBtn.disabled = false;
+                    document.getElementById('imageTools').style.display = 'flex';
+                    
+                    generateBeadPattern();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function generateBeadPattern() {
+            if (!uploadedImage) return;
+            
+            loadingOverlay.style.display = 'flex';
+            loadingText.textContent = '正在生成拼豆图纸...';
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            try {
+                const contrastFactor = parseFloat(document.getElementById('contrastSlider').value);
+                const useEdgeEnhance = document.getElementById('useEdgeEnhance').checked;
+                const edgeStrength = parseFloat(document.getElementById('edgeStrengthSlider').value);
+                
+                const aspectRatio = uploadedImage.height / uploadedImage.width;
+                actualHeight = Math.round(currentSize * aspectRatio);
+                
+                // 调用核心处理函数
+                const result = processImage(uploadedImage, currentSize, actualHeight, {
+                    contrastFactor,
+                    useEdgeEnhance,
+                    edgeStrength
+                }, currentPalette);
+                
+                pixelData = result.pixelData;
+                gridData = result.gridData;
+                
+                // 切换到像素视图
+                currentView = 'pixel';
+                document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
+                document.querySelector('.preview-tab[data-view="pixel"]').classList.add('active');
+                
+                renderPreview();
+                
+                downloadBtn.disabled = false;
+            } catch (error) {
+                console.error('Error generating pattern:', error);
+                alert('生成图纸时出错，请重试。');
+            }
+            
+            loadingOverlay.style.display = 'none';
+        }
+
+        function renderPreview() {
+            if (!uploadedImage) return;
+            
+            const ctx = previewCanvas.getContext('2d');
+            
+            if (currentView === 'original') {
+                const maxWidth = 600;
+                const maxHeight = 500;
+                const scale = Math.min(maxWidth / uploadedImage.width, maxHeight / uploadedImage.height, 1);
+                
+                previewCanvas.width = uploadedImage.width * scale;
+                previewCanvas.height = uploadedImage.height * scale;
+                
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+                
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(uploadedImage, 0, 0, previewCanvas.width, previewCanvas.height);
+                return;
+            }
+            
+            if (!pixelData) return;
+            
+            const cellSize = currentView === 'grid' ? 25 : 15;
+            
+            previewCanvas.width = currentSize * cellSize;
+            previewCanvas.height = actualHeight * cellSize;
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+            
+            const showGrid = document.getElementById('showGrid').checked;
+            const showColorCodes = document.getElementById('showColorCodes').checked;
+            
+            for (let y = 0; y < actualHeight; y++) {
+                for (let x = 0; x < currentSize; x++) {
+                    const idx = (y * currentSize + x) * 4;
+                    const r = pixelData[idx];
+                    const g = pixelData[idx + 1];
+                    const b = pixelData[idx + 2];
+                    const colorIndex = findClosestColorIndex(r, g, b, currentPalette);
+                    const color = currentPalette[colorIndex];
+                    
+                    const posX = x * cellSize;
+                    const posY = y * cellSize;
+                    
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(posX, posY, cellSize, cellSize);
+                    
+                    if (showGrid && currentView === 'grid') {
+                        ctx.strokeStyle = '#CCCCCC';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(posX, posY, cellSize, cellSize);
+                    }
+                    
+                    if (showColorCodes && currentView === 'grid') {
+                        ctx.fillStyle = getContrastColor(r, g, b);
+                        ctx.font = 'bold 8px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(color.code, posX + cellSize / 2, posY + cellSize / 2);
+                    }
+                }
+            }
+        }
+
+        function downloadPattern() {
+            if (!pixelData) return;
+            
+            const link = document.createElement('a');
+            link.download = `拼豆图纸_${currentSize}x${actualHeight}.png`;
+            link.href = previewCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // ==================== Crop Functions ====================
+        function openCropModal() {
+            cropCanvas = document.getElementById('cropCanvas');
+            cropCtx = cropCanvas.getContext('2d');
+            cropOverlay = document.getElementById('cropOverlay');
+            
+            const maxWidth = 800;
+            const maxHeight = 600;
+            const scale = Math.min(maxWidth / uploadedImage.width, maxHeight / uploadedImage.height, 1);
+            
+            cropCanvas.width = uploadedImage.width * scale;
+            cropCanvas.height = uploadedImage.height * scale;
+            
+            cropCtx.drawImage(uploadedImage, 0, 0, cropCanvas.width, cropCanvas.height);
+            
+            const cropWidth = cropCanvas.width * 0.8;
+            const cropHeight = cropCanvas.height * 0.8;
+            cropRect = {
+                x: (cropCanvas.width - cropWidth) / 2,
+                y: (cropCanvas.height - cropHeight) / 2,
+                width: cropWidth,
+                height: cropHeight
+            };
+            
+            updateCropOverlay();
+            setupCropEvents();
+            document.getElementById('cropModal').style.display = 'flex';
+        }
+
+        function closeCropModal() {
+            document.getElementById('cropModal').style.display = 'none';
+            removeCropEvents();
+        }
+
+        function updateCropOverlay() {
+            cropOverlay.style.left = cropRect.x + 'px';
+            cropOverlay.style.top = cropRect.y + 'px';
+            cropOverlay.style.width = cropRect.width + 'px';
+            cropOverlay.style.height = cropRect.height + 'px';
+        }
+
+        function setupCropEvents() {
+            cropOverlay.addEventListener('mousedown', onCropMouseDown);
+            document.addEventListener('mousemove', onCropMouseMove);
+            document.addEventListener('mouseup', onCropMouseUp);
+        }
+
+        function removeCropEvents() {
+            cropOverlay.removeEventListener('mousedown', onCropMouseDown);
+            document.removeEventListener('mousemove', onCropMouseMove);
+            document.removeEventListener('mouseup', onCropMouseUp);
+        }
+
+        function onCropMouseDown(e) {
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                if (e.target.classList.contains('nw')) resizeHandle = 'nw';
+                else if (e.target.classList.contains('ne')) resizeHandle = 'ne';
+                else if (e.target.classList.contains('sw')) resizeHandle = 'sw';
+                else if (e.target.classList.contains('se')) resizeHandle = 'se';
+            } else {
+                isDragging = true;
+            }
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            e.preventDefault();
+        }
+
+        function onCropMouseMove(e) {
+            if (!isDragging && !isResizing) return;
+            
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            
+            if (isDragging) {
+                cropRect.x = Math.max(0, Math.min(cropCanvas.width - cropRect.width, cropRect.x + dx));
+                cropRect.y = Math.max(0, Math.min(cropCanvas.height - cropRect.height, cropRect.y + dy));
+            } else if (isResizing) {
+                const minSize = 50;
+                
+                if (resizeHandle === 'se') {
+                    cropRect.width = Math.max(minSize, cropRect.width + dx);
+                    cropRect.height = Math.max(minSize, cropRect.height + dy);
+                } else if (resizeHandle === 'sw') {
+                    const newWidth = Math.max(minSize, cropRect.width - dx);
+                    cropRect.x += cropRect.width - newWidth;
+                    cropRect.width = newWidth;
+                    cropRect.height = Math.max(minSize, cropRect.height + dy);
+                } else if (resizeHandle === 'ne') {
+                    const newHeight = Math.max(minSize, cropRect.height - dy);
+                    cropRect.y += cropRect.height - newHeight;
+                    cropRect.height = newHeight;
+                    cropRect.width = Math.max(minSize, cropRect.width + dx);
+                } else if (resizeHandle === 'nw') {
+                    const newWidth = Math.max(minSize, cropRect.width - dx);
+                    const newHeight = Math.max(minSize, cropRect.height - dy);
+                    cropRect.x += cropRect.width - newWidth;
+                    cropRect.y += cropRect.height - newHeight;
+                    cropRect.width = newWidth;
+                    cropRect.height = newHeight;
+                }
+            }
+            
+            updateCropOverlay();
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+        }
+
+        function onCropMouseUp() {
+            isDragging = false;
+            isResizing = false;
+            resizeHandle = '';
+        }
+
+        function applyCrop() {
+            const scale = uploadedImage.width / cropCanvas.width;
+            const cropX = Math.round(cropRect.x * scale);
+            const cropY = Math.round(cropRect.y * scale);
+            const cropW = Math.round(cropRect.width * scale);
+            const cropH = Math.round(cropRect.height * scale);
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = cropW;
+            tempCanvas.height = cropH;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(uploadedImage, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+            
+            const croppedImg = new Image();
+            croppedImg.onload = () => {
+                uploadedImage = croppedImg;
+                closeCropModal();
+                generateBeadPattern();
+            };
+            croppedImg.src = tempCanvas.toDataURL();
+        }
+
+        // 将裁剪函数挂载到全局，因为模态框按钮使用了 onclick 属性
+        window.closeCropModal = closeCropModal;
+        window.applyCrop = applyCrop;
+
+        // Initialize
+        actualHeight = currentSize;
+    </script>
+</body>
+</html>
