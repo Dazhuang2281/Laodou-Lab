@@ -109,8 +109,9 @@ export function sobelEdgeDetection(imageData) {
     const width = imageData.width;
     const height = imageData.height;
     const data = imageData.data;
-    const edgeData = new Uint8ClampedArray(width * height);
+    const gradient = new Float32Array(width * height);
 
+    // Scharr算子
     const gx = [
         [-3, 0, 3],
         [-10, 0, 10],
@@ -122,6 +123,7 @@ export function sobelEdgeDetection(imageData) {
         [3, 10, 3]
     ];
 
+    // 计算梯度幅值
     for (let y = 1; y < height - 1; y++) {
         for (let x = 1; x < width - 1; x++) {
             let sumX = 0, sumY = 0;
@@ -134,34 +136,79 @@ export function sobelEdgeDetection(imageData) {
                 }
             }
             const magnitude = Math.sqrt(sumX * sumX + sumY * sumY);
-            edgeData[y * width + x] = Math.min(255, magnitude * 1.5);
+            gradient[y * width + x] = magnitude;
         }
     }
+
+    // 构建直方图并统计最大值
+    const hist = new Array(256).fill(0);
+    let maxGrad = 0;
+    let total = 0;
+    let sum = 0;
+    for (let i = 0; i < gradient.length; i++) {
+        const val = gradient[i];
+        if (val > 0) {
+            total++;
+            sum += val;
+            const idx = Math.min(255, Math.floor(val));
+            hist[idx]++;
+            if (val > maxGrad) maxGrad = val;
+        }
+    }
+
+    if (total === 0) return new Uint8ClampedArray(width * height);
+
+    // Otsu阈值计算
+    let sumB = 0;
+    let wB = 0;
+    let maxVariance = 0;
+    let threshold = 0;
+
+    for (let t = 0; t < 256; t++) {
+        wB += hist[t];
+        if (wB === 0) continue;
+        const wF = total - wB;
+        if (wF === 0) break;
+
+        sumB += t * hist[t];
+        const mB = sumB / wB;
+        const mF = (sum - sumB) / wF;
+        const variance = wB * wF * (mB - mF) * (mB - mF);
+        if (variance > maxVariance) {
+            maxVariance = variance;
+            threshold = t;
+        }
+    }
+
+    // 应用阈值，线性拉伸
+    const edgeData = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < gradient.length; i++) {
+        if (gradient[i] > threshold) {
+            const mapped = 128 + Math.min(127, Math.floor(127 * (gradient[i] - threshold) / (maxGrad - threshold + 1e-6)));
+            edgeData[i] = mapped;
+        } else {
+            edgeData[i] = 0;
+        }
+    }
+
     return edgeData;
 }
 
 export function blendWithEdge(pixelData, width, height, edgeMap, strength = 0.5) {
     const result = new Uint8ClampedArray(pixelData.length);
-    const center = 128;
-
     for (let i = 0; i < pixelData.length; i += 4) {
         const edgeIdx = i / 4;
-        let edgeStrength = edgeMap[edgeIdx] / 255;
-        edgeStrength = edgeStrength * edgeStrength * (2 - edgeStrength);
+        const edgeVal = edgeMap[edgeIdx]; // 0-255
+        // 增强因子：边缘值越大，因子越大，但不超过1 + strength * 0.8
+        const factor = 1 + (edgeVal / 255) * strength * 0.8;
 
         const r = pixelData[i];
         const g = pixelData[i + 1];
         const b = pixelData[i + 2];
 
-        const devR = r - center;
-        const devG = g - center;
-        const devB = b - center;
-
-        const enhancementFactor = 1 + (edgeStrength * strength * 2.5);
-
-        result[i] = Math.min(255, Math.max(0, center + devR * enhancementFactor));
-        result[i + 1] = Math.min(255, Math.max(0, center + devG * enhancementFactor));
-        result[i + 2] = Math.min(255, Math.max(0, center + devB * enhancementFactor));
+        result[i] = Math.min(255, Math.max(0, Math.round(r * factor)));
+        result[i + 1] = Math.min(255, Math.max(0, Math.round(g * factor)));
+        result[i + 2] = Math.min(255, Math.max(0, Math.round(b * factor)));
         result[i + 3] = 255;
     }
     return result;
@@ -586,3 +633,4 @@ export function processImage(image, targetWidth, targetHeight, options = {}, pal
         palette
     };
 }
+
