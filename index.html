@@ -461,14 +461,9 @@
 
                 <div class="panel-section">
                     <h3>📏 选择尺寸</h3>
-                    <div class="size-grid" id="sizeGrid">
-                        <div class="size-option" data-size="10"><span class="size-label">10×10</span></div>
-                        <div class="size-option" data-size="15"><span class="size-label">15×15</span></div>
-                        <div class="size-option active" data-size="20"><span class="size-label">20×20</span></div>
-                        <div class="size-option" data-size="25"><span class="size-label">25×25</span></div>
-                        <div class="size-option" data-size="30"><span class="size-label">30×30</span></div>
-                        <div class="size-option" data-size="40"><span class="size-label">40×40</span></div>
-                        <div class="size-option" data-size="52"><span class="size-label">52×52</span></div>
+                    <div class="custom-size-input" style="margin-top: 12px;">
+                        <label for="customWidth" style="display: block; margin-bottom: 6px; font-size: 0.9rem;">自定义宽度 (1-100)</label>
+                        <input type="number" id="customWidth" min="1" max="100" step="1" value="20" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
                     </div>
                 </div>
 
@@ -539,6 +534,11 @@
                 <div style="display:flex; gap:12px;">
                     <button class="btn btn-secondary" id="downloadBtn" style="flex:1;" disabled>💾 下载图纸</button>
                 </div>
+                <!-- ===== 新增：调色板区域 ===== -->
+                <div style="margin-top: 20px;">
+                    <h4 style="margin-bottom: 8px;">🎨 色板 (点击选择颜色)</h4>
+                    <div id="colorPaletteContainer" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; background: #f0f0f0; border-radius: 8px; max-height: 150px; overflow-y: auto;">
+             <!-- 这里会被 JavaScript 动态填充 -->
             </div>
         </div>
     </div>
@@ -589,7 +589,12 @@
         let currentView = 'pixel';
         let pixelData = null;
         let gridData = null;
+        let selectedColorCode = null;      // 当前选中的颜色代码，如 'P01'
+        let isPaintModeActive = false;     // 涂色模式是否激活
         
+        // 获取自定义宽度输入框
+        const customWidthInput = document.getElementById('customWidth');
+
         // Crop functionality variables
         let cropCanvas, cropCtx, cropOverlay;
         let isDragging = false;
@@ -634,16 +639,6 @@
             }
         });
 
-        sizeGrid.querySelectorAll('.size-option').forEach(option => {
-            option.addEventListener('click', () => {
-                sizeGrid.querySelectorAll('.size-option').forEach(o => o.classList.remove('active'));
-                option.classList.add('active');
-                currentSize = parseInt(option.dataset.size);
-                if (uploadedImage) {
-                    generateBeadPattern();
-                }
-            });
-        });
 
         previewTabs.querySelectorAll('.preview-tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -657,6 +652,49 @@
         generateBtn.addEventListener('click', generateBeadPattern);
         downloadBtn.addEventListener('click', downloadPattern);
         
+        // 新增：预览画布点击涂色
+        previewCanvas.addEventListener('click', (e) => {
+            if (!isPaintModeActive || !selectedColorCode || !pixelData || !gridData) {
+                return;
+            }
+            const rect = previewCanvas.getBoundingClientRect();
+            const scaleX = previewCanvas.width / rect.width;
+            const scaleY = previewCanvas.height / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+            const cellSize = currentView === 'grid' ? 25 : 15;
+            const gridX = Math.floor(mouseX / cellSize);
+            const gridY = Math.floor(mouseY / cellSize);
+            if (gridX < 0 || gridX >= currentSize || gridY < 0 || gridY >= actualHeight) return;
+
+            const selectedColor = perlerColors.find(c => c.code === selectedColorCode);
+            if (!selectedColor) return;
+
+            const idx = (gridY * currentSize + gridX) * 4;
+            pixelData[idx] = selectedColor.r;
+            pixelData[idx+1] = selectedColor.g;
+            pixelData[idx+2] = selectedColor.b;
+            pixelData[idx+3] = 255;
+
+            const colorIndex = perlerColors.findIndex(c => c.code === selectedColorCode);
+            if (gridData && gridData[gridY]) {
+                gridData[gridY][gridX] = colorIndex;
+            }
+            renderPreview();
+        });
+
+        // 新增：按 ESC 退出涂色模式
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isPaintModeActive) {
+                isPaintModeActive = false;
+                previewCanvas.style.cursor = 'default';
+                // 可选：移除色块的高亮边框
+                document.querySelectorAll('.color-swatch').forEach(el => {
+                    el.style.borderColor = 'transparent';
+                });
+                selectedColorCode = null;
+            }
+        });
         // Crop button
         document.getElementById('cropBtn').addEventListener('click', openCropModal);
         
@@ -693,6 +731,17 @@
         edgeStrengthSlider.addEventListener('input', () => {
             const value = parseFloat(edgeStrengthSlider.value);
             edgeStrengthValue.textContent = value.toFixed(1);
+        });
+
+        // 监听自定义宽度输入框变化
+        customWidthInput.addEventListener('change', (e) => {
+            let val = parseInt(e.target.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 100) val = 100;
+            e.target.value = val;
+            // 只更新 currentSize，但不立即生成
+            currentSize = val;
+            // 注意：不再调用 generateBeadPattern()
         });
 
         // Functions
@@ -746,7 +795,8 @@
                 document.querySelector('.preview-tab[data-view="pixel"]').classList.add('active');
                 
                 renderPreview();
-                
+                renderPalette(); // <-- 新增：每次生成图纸后重新渲染色板（确保色板状态与当前图纸匹配）
+
                 downloadBtn.disabled = false;
             } catch (error) {
                 console.error('Error generating pattern:', error);
@@ -821,7 +871,58 @@
                 }
             }
         }
-
+        // 新增：渲染调色板
+        // 动态渲染调色板（带编号）
+        function renderPalette() {
+            const container = document.getElementById('colorPaletteContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            perlerColors.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.setAttribute('data-code', color.code);
+                
+                // 设置样式：色块稍大一点以容纳文字，使用 flex 居中，文字颜色自动适配背景
+                swatch.style.cssText = `
+                    width: 36px;
+                    height: 36px;
+                    background-color: rgb(${color.r}, ${color.g}, ${color.b});
+                    border: 2px solid ${selectedColorCode === color.code ? '#000' : 'transparent'};
+                    border-radius: 4px;
+                    cursor: pointer;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    transition: transform 0.1s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: ${getContrastColor(color.r, color.g, color.b)};
+                `;
+                
+                // 设置文本内容为颜色编号（如 P01）
+                swatch.textContent = color.code;
+                
+                // 添加鼠标悬浮时显示完整颜色名称
+                swatch.title = `${color.code}: ${color.name}`;
+                
+                swatch.onclick = (e) => {
+                    e.stopPropagation();
+                    // 移除其他色块的选中边框
+                    document.querySelectorAll('.color-swatch').forEach(el => {
+                        el.style.borderColor = 'transparent';
+                    });
+                    // 设置当前选中边框
+                    swatch.style.borderColor = '#000';
+                    selectedColorCode = color.code;
+                    isPaintModeActive = true;
+                    // 改变鼠标样式提示涂色模式
+                    previewCanvas.style.cursor = 'crosshair';
+                };
+                
+                container.appendChild(swatch);
+            });
+        }
         function downloadPattern() {
             if (!pixelData) return;
             
@@ -973,6 +1074,8 @@
 
         // Initialize
         actualHeight = currentSize;
+        customWidthInput.value = currentSize;// 初始化输入框值
+        renderPalette(); // 初始渲染色板
     </script>
 </body>
 </html>
